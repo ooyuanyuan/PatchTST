@@ -73,5 +73,5 @@ def select_samples(data_list_file, root_path, data_path="BCS", metric_type='ALL'
 
 if __name__ == '__main__':
     # train_list = select_samples(data_list_file="train.txt", root_path="../dataset/AIOps", data_path='BCS')
-    train_list = select_samples(data_list_file="train.txt", root_path="../dataset/bkbase", data_path='data')
+    train_list = select_samples(data_list_file="train.txt", root_path="../../dataset/bkbase", data_path='data')
     print(len(train_list))
