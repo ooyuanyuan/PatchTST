@@ -5,7 +5,7 @@ import numpy as np
 from exp.exp_main import Exp_Main
 
 
-def parser_args():
+def parser_command_args():
     parser = argparse.ArgumentParser(description='Autoformer & Transformer family for Time Series Forecasting')
 
     # random seed
@@ -123,6 +123,10 @@ def get_setting(args, itr):  # noqa
 
 
 if __name__ == '__main__':
+    # read args from command-line:
+    # args = parser_command_args()
+
+    # read args from json;
     from deploy.json2args import get_args_from_json
 
     args = argparse.Namespace(**get_args_from_json('./scripts/product/args_bcs_patchtst_d3h6p1.json'))  # noqa
