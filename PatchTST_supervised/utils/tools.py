@@ -1,10 +1,12 @@
+import os
 import torch
 import numpy as np
 import pandas as pd
+from datetime import datetime
 import matplotlib.pyplot as plt
+import matplotlib.dates as mdates
 
 plt.switch_backend('agg')
-
 TZ = "Asia/Shanghai"
 
 
@@ -110,11 +112,13 @@ def test_params_flop(model, x_shape):
     """
     If you want to thest former's flop, you need to give default value to inputs in model.forward(), the following code can only pass one argument to forward()
     """
+    from ptflops import get_model_complexity_info
+
     model_params = 0
     for parameter in model.parameters():
         model_params += parameter.numel()
         print('INFO: Trainable parameter count: {:.2f}M'.format(model_params / 1000000.0))
-    from ptflops import get_model_complexity_info
+
     with torch.cuda.device(0):
         macs, params = get_model_complexity_info(model.cuda(), x_shape, as_strings=True, print_per_layer_stat=True)
         # print('Flops:' + flops)
@@ -130,7 +134,7 @@ def plot_predict_result(preds_result, source_ts_csv, **kwargs):
     :param source_ts_csv:
     :return:
     """
-    from datetime import datetime
+
     isload = kwargs.get('isload', False)  # noqa
     if isload:
         preds_result = np.load(preds_result)

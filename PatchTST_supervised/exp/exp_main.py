@@ -7,7 +7,9 @@ import torch.nn as nn
 from torch import optim
 from torch.optim import lr_scheduler
 import matplotlib.pyplot as plt
-from models import Informer, Autoformer, Transformer, DLinear, Linear, NLinear, PatchTST
+from models import (
+    Informer, Autoformer, Transformer, DLinear, Linear, NLinear, PatchTST
+)
 from exp.exp_basic import Exp_Basic
 from data_provider.data_factory import data_provider
 from utils.tools import (

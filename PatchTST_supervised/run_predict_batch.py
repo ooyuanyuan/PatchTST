@@ -12,17 +12,17 @@ from run_longExp import get_setting
 from deploy.json2args import get_args_from_json
 
 
-def init_trained_experiment(args_json_file, predict_data_file=None):
+def init_trained_experiment(args_json_file: str, predict_data_file_name: str = None):
     """
     初始化已训练的模型，并加载；
     :param args_json_file:
-    :param predict_data_file: 若未指定，则使用默认test.txt;
+    :param predict_data_file_name: 若未指定，则使用默认test.txt;
     :return:
     """
     args = argparse.Namespace(**get_args_from_json(args_json_file))
     # 重新定义预测数据；默认为 test.txt;
-    if predict_data_file:
-        args.test_data_list = predict_data_file
+    if predict_data_file_name:
+        args.test_data_list = predict_data_file_name
     # random seed
     fix_seed = args.random_seed
     random.seed(fix_seed)
@@ -40,10 +40,10 @@ def init_trained_experiment(args_json_file, predict_data_file=None):
     print(f'Args in experiment:{args}')
 
     Exp = Exp_Main  # Experiments Main;
-    exp = Exp(args)  # noqa
+    exp = Exp(args)
 
     setting = get_setting(args=args, itr=0)  # noqa
-    print('模型关键参数路径: {}'.format(setting))
+    print('模型预测结果路径: {}'.format(setting))
     return exp, setting
 
 
