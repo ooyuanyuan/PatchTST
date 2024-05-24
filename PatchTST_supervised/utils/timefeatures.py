@@ -132,3 +132,20 @@ def time_features_from_frequency_str(freq_str: str) -> List[TimeFeature]:
 
 def time_features(dates, freq='h'):
     return np.vstack([feat(dates) for feat in time_features_from_frequency_str(freq)])
+
+
+if __name__ == '__main__':
+    dates = [
+        '2018-06-24 08:00:00',
+        '2018-06-24 08:01:00',
+        '2018-06-24 08:02:00',
+        '2018-06-24 08:03:00',
+        '2018-06-24 08:04:00',
+        '2018-06-24 08:05:00',
+    ]
+    # dates = [pd.to_datetime(i) for i in dates]
+    # print(dates)
+    # print(time_features(dates=dates, freq='h'))
+
+    for feat in time_features_from_frequency_str(freq_str='h'):
+        print(feat)

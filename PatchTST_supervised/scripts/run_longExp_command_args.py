@@ -4,8 +4,11 @@ import argparse
 import numpy as np
 from exp.exp_main import Exp_Main
 
+# --random_seed 2021 --is_training 1 --root_path ./dataset/ --data_path ETTh1.csv --model_id ETTh1_336_96 --model PatchTST
+# --data ETTh1 --features M --seq_len 336 --pred_len 96 --enc_in 7 --e_layers 3 --n_heads 4 --d_model 16 --d_ff 128 --dropout 0.3 --fc_dropout 0.3
+# --head_dropout 0 --patch_len 16 --stride 8 --des 'Exp' --train_epochs 100 --itr 1 --batch_size 128 --learning_rate 0.0001
 
-def parser_args():
+if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Autoformer & Transformer family for Time Series Forecasting')
 
     # random seed
@@ -94,38 +97,6 @@ def parser_args():
     parser.add_argument('--test_flop', action='store_true', default=False, help='See utils/tools for usage')
 
     args = parser.parse_args()
-    return args
-
-
-def get_setting(args, itr):  # noqa
-
-    setting = '{}_{}_{}_ft{}_sl{}_ll{}_pl{}_dm{}_nh{}_el{}_dl{}_df{}_fc{}_eb{}_dt{}_{}_decp{}_{}'.format(  # noqa
-        args.model_id,
-        args.model,
-        args.data,
-        args.features,
-        args.seq_len,
-        args.label_len,
-        args.pred_len,
-        args.d_model,  # 16
-        args.n_heads,  # 4
-        args.e_layers,  # encoder
-        args.d_layers,  # decoder
-        args.d_ff,  # 128
-        args.factor,  # 1
-        args.embed,  # 'timeF'
-        args.distil,
-        args.des,
-        args.decomposition,  # 是否做分解；
-        itr
-    )
-    return setting
-
-
-if __name__ == '__main__':
-    from deploy.json2args import get_args_from_json
-
-    args = argparse.Namespace(**get_args_from_json('./scripts/product/args_bcs_patchtst_d3h6p1.json'))  # noqa
 
     # random seed
     fix_seed = args.random_seed
@@ -141,30 +112,62 @@ if __name__ == '__main__':
         args.device_ids = [int(id_) for id_ in device_ids]
         args.gpu = args.device_ids[0]
 
-    print(f'Args in experiment:{args}')
+    print('Args in experiment:')
+    print(args)
 
     Exp = Exp_Main
 
     if args.is_training:
         for ii in range(args.itr):
             # setting record of experiments
-            setting = get_setting(args=args, itr=ii)
+            setting = '{}_{}_{}_ft{}_sl{}_ll{}_pl{}_dm{}_nh{}_el{}_dl{}_df{}_fc{}_eb{}_dt{}_{}_{}'.format(
+                args.model_id,
+                args.model,
+                args.data,
+                args.features,
+                args.seq_len,
+                args.label_len,
+                args.pred_len,
+                args.d_model,
+                args.n_heads,
+                args.e_layers,
+                args.d_layers,
+                args.d_ff,
+                args.factor,
+                args.embed,
+                args.distil,
+                args.des, ii)
 
             exp = Exp(args)  # set experiments
-            print('>>>>>>>start training : {}>>>>>>>>>>>>>>>>>>>>>>>>>>'.format(setting))
+            print('>>>>>>>start training : {}>>>>>'.format(setting))
             exp.train(setting)
 
-            print('>>>>>>>testing : {}<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<'.format(setting))
+            print('>>>>>>>testing : {}<<<'.format(setting))
             exp.test(setting)
 
             if args.do_predict:
-                print('>>>>>>>predicting : {}<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<'.format(setting))
+                print('>>>>>>>predicting : {}<<<<'.format(setting))
                 exp.predict(setting, True)
 
             torch.cuda.empty_cache()
     else:
         ii = 0
-        setting = get_setting(args=args, itr=ii)
+        setting = '{}_{}_{}_ft{}_sl{}_ll{}_pl{}_dm{}_nh{}_el{}_dl{}_df{}_fc{}_eb{}_dt{}_{}_{}'.format(args.model_id,
+                                                                                                      args.model,
+                                                                                                      args.data,
+                                                                                                      args.features,
+                                                                                                      args.seq_len,
+                                                                                                      args.label_len,
+                                                                                                      args.pred_len,
+                                                                                                      args.d_model,
+                                                                                                      args.n_heads,
+                                                                                                      args.e_layers,
+                                                                                                      args.d_layers,
+                                                                                                      args.d_ff,
+                                                                                                      args.factor,
+                                                                                                      args.embed,
+                                                                                                      args.distil,
+                                                                                                      args.des, ii)
 
         exp = Exp(args)  # set experiments
         print('>>>>>>>testing : {}<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<'.format(setting))
