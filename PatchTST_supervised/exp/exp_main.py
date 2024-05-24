@@ -18,6 +18,7 @@ from utils.metrics import metric
 warnings.filterwarnings('ignore')
 
 
+# // TODO process the repetitive code;
 def plot_optim_adam(scheduler):
     # """迭代器，嵌入影响模型训练，研究代码使用"""
     def plot_fig(x, y):
