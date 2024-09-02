@@ -52,6 +52,7 @@ class Exp_Main(Exp_Basic):
             'Linear': Linear,
             'PatchTST': PatchTST,
         }
+        # 实例化具体模型
         model = model_dict[self.args.model].Model(self.args).float()
 
         if self.args.use_multi_gpu and self.args.use_gpu:
@@ -130,7 +131,7 @@ class Exp_Main(Exp_Basic):
             os.makedirs(path)
         print("start train ")
         time_now = time.time()
-
+        # data-set中存序列，每个序列即为一个样本；序列长度=历史依赖数据长度，即用历史N天数据(x)，预测未来N天数据(y)
         train_steps = len(train_loader)
         early_stopping = EarlyStopping(patience=self.args.patience, verbose=True)
 
@@ -206,7 +207,7 @@ class Exp_Main(Exp_Basic):
                     iter_count = 0
                     time_now = time.time()
 
-                if self.args.use_amp:
+                if self.args.use_amp: # 是否使用混合精度训练
                     scaler.scale(loss).backward()
                     scaler.step(model_optim)
                     scaler.update()
@@ -225,7 +226,7 @@ class Exp_Main(Exp_Basic):
 
             print("Epoch: {0}, Steps: {1} | Train Loss: {2:.7f} Vali Loss: {3:.7f} Test Loss: {4:.7f}".format(
                 epoch + 1, train_steps, train_loss, vali_loss, test_loss))
-
+            # judge early stop
             early_stopping(vali_loss, self.model, path)
             if early_stopping.early_stop:
                 print("Early stopping")

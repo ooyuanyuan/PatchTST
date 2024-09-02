@@ -35,7 +35,7 @@ def convert_gpu2cpu_model_state(args_json_file):
     :return:
     """
 
-    from run_predict_batch import init_trained_experiment
+    from run_predict import init_trained_experiment
     exp, setting = init_trained_experiment(args_json_file=args_json_file)
     path = os.path.join(projectPath, exp.args.checkpoints, setting)
     best_model_path = f'{path}/checkpoint.pth'
@@ -67,7 +67,7 @@ def convert_pth2pkl(args_json_file='args_aiops.json', cuda='cpu'):
         convert_gpu2cpu_model_state(args_json_file=args_json_file)
 
     # convert to pickle;
-    from run_longExp import get_setting
+    from run_longExp_debug import get_setting
     args = argparse.Namespace(**get_args_from_json(args_json_file))
     print(f'Args in experiment:{args}')
     setting = get_setting(args, itr=0)
