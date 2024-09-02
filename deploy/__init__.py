@@ -8,3 +8,4 @@ __all__ = ('projectPath',)
 import os
 
 projectPath = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
+print(projectPath)
