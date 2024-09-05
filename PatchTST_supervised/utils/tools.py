@@ -189,16 +189,145 @@ def plot_predict_result(preds_result, source_ts_csv, **kwargs):
     plt.close()
 
 
-if __name__ == '__main__':
-    plot_predict_result(
-        # npy_data="../results/AIOps_2880_0_1440_DLinear_AIOps_ftS_sl2880_ll0_pl1440_dm16_nh4_el3_dl1_df128_fc1_ebtimeF_dtFalse_Exp_0//real_prediction.npy",
-        # source_ts_csv="../dataset/bkbase/data/BCS-K8S-41021~ieg-bkbase-dataflow-flink-prod~sql-8ac47ad112314d90a9aac641d55d670a-78f55969f9-29vsk~cpu_usage.csv"
-        # preds_result="../results/AIOps_2880_0_1440_PatchTST_AIOps_ftS_sl2880_ll0_pl1440_dm16_nh4_el3_dl1_df128_fc1_ebtimeF_dtFalse_Exp_0/pred.npy",
-        # source_ts_csv="../dataset/bkbase/data/BCS-K8S-41021~ieg-bkbase-dataflow-flink-prod~sql-8ac47ad112314d90a9aac641d55d670a-78f55969f9-29vsk~cpu_usage.csv",
-        # preds_result="../results/AIOps_2880_0_1440_PatchTST_AIOps_ftS_sl2880_ll0_pl1440_dm16_nh4_el3_dl1_df128_fc1_ebtimeF_dtFalse_Exp_decp1_0/BCS-K8S-41021~ieg-bkbase-dataflow-flink-prod~sql-8ac47ad112314d90a9aac641d55d670a-78f55969f9-29vsk~cpu_usage_real_prediction.npy",
+def get_timestamp_unit(timestamp):
+    """获取时间戳的单位"""
+    unit_dict = {10: "s", 13: "ms"}
+    unit = unit_dict.get(len(str(timestamp)))
+    if not unit:
+        raise Exception(f"Error: Incorrect timestamp, support[ms, s], your timestamp: {timestamp}")
+    return unit
 
-        # source_ts_csv="../dataset/bkbase/data/queryset_cpu.csv",
-        # preds_result="../results/AIOps_2880_0_1440_PatchTST_AIOps_ftS_sl2880_ll0_pl1440_dm16_nh4_el3_dl1_df128_fc1_ebtimeF_dtFalse_Exp_decp1_0/queryset_cpu_real_prediction.npy",
+
+def get_freq(timestamps: pd.Series, max_ratio=0.5):
+    """
+    根据时间戳（timestamp）判断数据频率，输入数据确保大于2条，返回以天为单位；
+    :param timestamps:
+    :param max_ratio:
+    :return: freq in [ "T", "D", "M", "Y"]
+    """
+    DAY_MINUTES = 1440
+    if pd.api.types.is_datetime64_any_dtype(timestamps):
+        timestamps = pd.Series([int(i.timestamp()) for i in timestamps])
+    # AIOps场景输入数据不足时，不做处理
+    if timestamps.shape[0] <= 1:
+        return None, ""
+    timestamp = np.sort(timestamps).astype(int)
+
+    diff, count = np.unique(np.diff(timestamp), return_counts=True)
+    ratio = np.max(count) / np.sum(count)  # 高频
+    # 分钟级别，但若到月级别，可涉及月天并不总是一致：比如：天-28～31, 后续需进一步处理；
+    if ratio >= max_ratio:
+        freq = diff[count.tolist().index(np.max(count))]
+    else:
+        freq = np.gcd.reduce(diff)  # np.gcd-> 最大公分母
+
+    unit = get_timestamp_unit(timestamp[0])
+    unit = 1000 if unit == 'ms' else 1
+
+    freq = freq / 60 / unit  # convert to min
+    _u = freq / DAY_MINUTES  # convert to 'day'
+    if _u < 28:  # < month
+        return int(freq), "min"  # 'T' is deprecated and will be removed in a future version
+    else:
+        return int(_u / 28), "MS"
+
+
+def plot_predict(source_ts_csv, preds_result, **kwargs):
+    """
+    多图展示长期预测效果；
+    :return:
+    """
+    if kwargs.get('isload', False):
+        preds_result = np.load(preds_result)
+    # 原始数据
+    src_data = pd.read_csv(source_ts_csv).set_index(['timestamp'])
+    # 预测结果
+    preds, trues, stamps = preds_result[0], preds_result[1], preds_result[2]
+    preds = np.squeeze(preds, axis=-1)
+    stamps = np.squeeze(stamps, axis=-1)
+    # 仅画出预测的每个点的第一个值作为可视化对象；
+    df = pd.DataFrame()
+    df['timestamp'] = stamps[:, 0]
+    df['pred_value'] = preds[:, 0]
+    df['pred'] = preds.tolist()
+    df = df.set_index('timestamp')
+
+    df = pd.concat([src_data, df], axis=1).sort_index()
+    df.index = stamp2date(df.index)
+
+    # plot figure;
+    plot_point_cnt = int(np.ceil(preds.shape[0] / preds.shape[1]))
+    row, col = 2, 1
+    fig = plt.figure(figsize=(25, 3 * row), constrained_layout=True)
+    fig.suptitle(
+        f': {kwargs.get("title", datetime.now().strftime("%Y-%m-%d-%H-%M-%S"))}, {plot_point_cnt}_point_demonstrate')
+    grid = plt.GridSpec(row, col, figure=fig)
+
+    ax = plt.subplot(grid[0, :])
+    # plt.scatter(x_original, y_original, color='dimgray', s=1, label='value')
+    ax.plot(df['value'], color='k', ms=1, lw=0.5, markeredgecolor='#183dd8', label='value')
+    ax.plot(df['pred_value'], marker="o", color='r', ms=1, lw=0.5, alpha=1, label='pred')
+    plt.axvline(stamp2date(stamps[0, 0]), lw=1, color='r', alpha=0.5)
+    ax.set_ylim([0, max(df['value']) * 1.05])
+    # 有时差问题
+    ax.xaxis.set_major_locator(mdates.DayLocator(interval=1, tz=TZ))
+    ax.xaxis.set_major_formatter(mdates.DateFormatter("%Y-%m-%d"))
+
+    ax.xaxis.grid(True, which="major", linestyle='dashed', linewidth=0.5)  # x坐标轴的网格使用主刻度
+    ax.yaxis.grid(True, which="major", linestyle='dashed', linewidth=0.5)
+    ax.set_ylabel(f"value vs predict(overlap)", fontsize=10)
+    ax.legend(loc='right')
+
+    # 分段画出未来时间点的预测效果；
+    ax2 = plt.subplot(grid[1, :])
+    ax2.plot(df['value'], color='k', ms=1, lw=0.5, markeredgecolor='#183dd8', label='value')
+
+    freq, unit = get_freq(timestamps=df.index)
+    if unit != "min":
+        raise Exception(f"数据频率（{unit}）有问题, 目前只支持min粒度")
+
+    for i in range(plot_point_cnt):
+        start_stamp = stamp2date(stamps[0, 0]) + pd.Timedelta(minutes=freq * i * preds.shape[1])
+        ax2.axvline(start_stamp, color='b', linestyle='--', lw=1, alpha=0.3)
+
+        patch = pd.DataFrame()
+        patch.index = [start_stamp + pd.Timedelta(minutes=freq * j) for j in range(preds.shape[1])]
+        patch['pred'] = df.loc[df.index == start_stamp].pred.values[0]
+        ax2.plot(patch['pred'], marker="o", color="r", ms=1, lw=1, alpha=0.5, label='pred')
+
+    ax2.xaxis.set_major_locator(mdates.DayLocator(interval=1, tz=TZ))
+    ax2.xaxis.set_major_formatter(mdates.DateFormatter("%Y-%m-%d"))
+    ax2.xaxis.grid(True, which="major", linestyle='dashed', linewidth=0.5)  # x坐标轴的网格使用主刻度
+    ax2.yaxis.grid(True, which="major", linestyle='dashed', linewidth=0.5)
+    ax2.set_ylabel(f"value vs predict", fontsize=10)
+
+    # 存储
+    savefig = kwargs.get("savefig")
+    if not savefig:
+        savefig = "../var/"
+    os.makedirs(savefig, exist_ok=True)
+    out_fig = f"{savefig}/{kwargs.get('title', datetime.now().strftime('%Y-%m-%d-%H-%M-%S'))}.png"
+    print(f"可视化存储：{out_fig}")
+    plt.savefig(out_fig, dpi=300)
+    plt.close()
+
+
+if __name__ == '__main__':
+    # plot_predict_result(
+    #     # npy_data="../results/AIOps_2880_0_1440_DLinear_AIOps_ftS_sl2880_ll0_pl1440_dm16_nh4_el3_dl1_df128_fc1_ebtimeF_dtFalse_Exp_0//real_prediction.npy",
+    #     # source_ts_csv="../dataset/bkbase/data/BCS-K8S-41021~ieg-bkbase-dataflow-flink-prod~sql-8ac47ad112314d90a9aac641d55d670a-78f55969f9-29vsk~cpu_usage.csv"
+    #     # preds_result="../results/AIOps_2880_0_1440_PatchTST_AIOps_ftS_sl2880_ll0_pl1440_dm16_nh4_el3_dl1_df128_fc1_ebtimeF_dtFalse_Exp_0/pred.npy",
+    #     # source_ts_csv="../dataset/bkbase/data/BCS-K8S-41021~ieg-bkbase-dataflow-flink-prod~sql-8ac47ad112314d90a9aac641d55d670a-78f55969f9-29vsk~cpu_usage.csv",
+    #     # preds_result="../results/AIOps_2880_0_1440_PatchTST_AIOps_ftS_sl2880_ll0_pl1440_dm16_nh4_el3_dl1_df128_fc1_ebtimeF_dtFalse_Exp_decp1_0/BCS-K8S-41021~ieg-bkbase-dataflow-flink-prod~sql-8ac47ad112314d90a9aac641d55d670a-78f55969f9-29vsk~cpu_usage_real_prediction.npy",
+    #
+    #     # source_ts_csv="../dataset/bkbase/data/queryset_cpu.csv",
+    #     # preds_result="../results/AIOps_2880_0_1440_PatchTST_AIOps_ftS_sl2880_ll0_pl1440_dm16_nh4_el3_dl1_df128_fc1_ebtimeF_dtFalse_Exp_decp1_0/queryset_cpu_real_prediction.npy",
+    #     source_ts_csv="../dataset/bcs-v2/bcs_data/BCS-K8S-40976-9.144.207.234.csv",
+    #     preds_result="../pred_results/BCS_96_12_1_PatchTST_AIOps_ftS_sl96_ll0_pl12_dm16_nh4_el3_dl1_df128_fc1_ebtimeF_dtFalse_Exp_decp1_0/BCS-K8S-40976-9.144.207.234_real_prediction.npy",
+    #     isload=True
+    # )
+
+    plot_predict(
         source_ts_csv="../dataset/bcs-v2/bcs_data/BCS-K8S-40976-9.144.207.234.csv",
         preds_result="../pred_results/BCS_96_12_1_PatchTST_AIOps_ftS_sl96_ll0_pl12_dm16_nh4_el3_dl1_df128_fc1_ebtimeF_dtFalse_Exp_decp1_0/BCS-K8S-40976-9.144.207.234_real_prediction.npy",
         isload=True
